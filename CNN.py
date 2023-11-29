@@ -1,32 +1,85 @@
+import numpy as np
 import tensorflow as tf
-from tensorflow import keras
+import matplotlib.pyplot as plt
+from itertools import product
+from PIL import Image
+import io
 
-# Step 1: Import Libraries
+#set the parameter
 
-# Step 2: Data Preparation
-(x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
-x_train, x_test = x_train / 255.0, x_test / 255.0  # Normalize pixel values to [0, 1]
+plt.rc('figure', autolayout=True)
+plt.rc('image',cmap='magma')
 
-# Step 3: Model Architecture
-model = keras.Sequential([
-    keras.layers.Flatten(input_shape=(28, 28)),
-    keras.layers.Dense(128, activation='relu'),
-    keras.layers.Dropout(0.2),
-    keras.layers.Dense(10, activation='softmax')
-])
+#define the kernel
+kernel = tf.constant([[-1,-1,-1],[-1,8,-1],[-1,-1,-1],])
 
-# Step 4: Loss and Optimizer
-model.compile(optimizer='adam',
-              loss='sparse_categorical_crossentropy',
-              metrics=['accuracy'])
 
-# Step 5: Training
-model.fit(x_train, y_train, epochs=5)
+#load the image
 
-# Step 6: Evaluation
-test_loss, test_accuracy = model.evaluate(x_test, y_test)
-print(f"Test accuracy: {test_accuracy * 100}%")
+image=tf.io.read_file('Ganesh.jpeg')
+image = tf.io.decode_image(image, channels=1)
+image=tf.image.resize(image,size=[300,300])
 
-# Step 7: Inference
-predictions = model.predict(x_test[:5])  # Make predictions for the first 5 test images
-print("Predictions:", predictions)
+# Load image using PIL
+pil_image = Image.open(io.BytesIO(image.numpy()))
+pil_image.show()  # Display the image
+#plot the image
+img=tf.squeeze(image).numpy()
+plt.figure(figsize=(5,5))
+plt.imshow(img, cmap='gray')
+plt.axis('off')
+plt.title('Original Gray Scale image')
+plt.show()
+
+#Reformat
+image=tf.image.convert_image_dtype(image, dtype=tf.float32)
+image=tf.expand_dims(image,axis=0)
+kernel=tf.reshape(kernel,[*kernel.shape,1,1])
+kernel = tf.cast(kernel, dtype=tf.float32)
+
+#convolution layer
+
+conv_fn = tf.nn.conv2d
+
+image_filter=conv_fn(
+    input=image,
+    filters=kernel,
+    strides=1,
+    padding='SAME',
+)
+
+plt.figure(figsize=(15,5))
+
+#Plot the convolved image
+
+plt.subplot(1,3,1)
+
+plt.imshow(
+    tf.squeeze(image_filter)
+)
+
+plt.axis('off')
+plt.title('Convolution')
+
+#activation layer
+relu_fn=tf.nn.relu
+#image detection
+image_detect=relu_fn(image_filter)
+
+plt.subplot(1,3,2)
+plt.imshow(
+    #reformat for plotting
+tf.squeeze(image_detect))
+
+plt.axis('off')
+plt.title('Activation')
+
+#Pooling layer
+pool =tf.nn.pool
+image_condense=pool(input=image_detect,window_shape=(2,2),pooling_type='MAX',strides=(2,2),padding='SAME',)
+
+plt.subplot(1,3,3)
+plt.imshow(tf.squeeze(image_condense))
+plt.axis('off')
+plt.title('Pooling')
+plt.show()
